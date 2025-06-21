@@ -1,0 +1,67 @@
+% Estimation Calculations
+\documentclass{article}
+\usepackage{amsmath}
+
+\usepackage[scaled]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
+
+\begin{document}
+
+\section*{Project Estimation Calculations}
+
+\subsection*{Total Hours}
+
+\begin{itemize}
+\item Total minimum hours:
+\[
+    H_{min} = \sum_{i=1}^{n} h_{min_i}
+\]
+
+\item Total maximum hours:
+\[
+    H_{max} = \sum_{i=1}^{n} h_{max_i}
+\]
+
+where $h_{min_i}$ and $h_{max_i}$ are the minimum and maximum hours for phase $i$.
+\end{itemize}
+
+\subsection*{Price Range}
+
+\begin{itemize}
+\item Minimum price (rounded to nearest 5):
+\[
+    P_{min} = \left\lfloor\frac{H_{min} \times R_{min}}{5}\right\rceil \times 5
+\]
+
+\item Maximum price (rounded to nearest 5):
+\[
+    P_{max} = \left\lfloor\frac{H_{max} \times R_{max}}{5}\right\rceil \times 5
+\]
+where:
+\begin{itemize}
+    \item $R_{min}$ = minimum hourly rate
+    \item $R_{max}$ = maximum hourly rate
+\end{itemize}
+\end{itemize}
+
+\subsection*{Timeline Estimation}
+
+\begin{itemize}
+\item Minimum weeks (best case):
+\[
+    W_{min} = \left\lfloor\frac{H_{min}}{H_{weekly\_max}}\right\rceil
+\]
+
+\item Maximum weeks (worst case):
+\[
+    W_{max} = \left\lfloor\frac{H_{max}}{H_{weekly\_min}}\right\rceil
+\]
+where:
+\begin{itemize}
+    \item $H_{weekly\_min}$ = minimum weekly hours
+    \item $H_{weekly\_max}$ = maximum weekly hours
+\end{itemize}
+\end{itemize}
+
+\end{document} 
