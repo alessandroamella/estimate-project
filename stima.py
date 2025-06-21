@@ -13,8 +13,8 @@ from pathlib import Path
 # Configurable parameters
 MIN_HOURLY_RATE_DEFAULT = 34
 MAX_HOURLY_RATE_DEFAULT = 36
-MIN_WEEKLY_HOURS_DEFAULT = 10
-MAX_WEEKLY_HOURS_DEFAULT = 13
+MIN_WEEKLY_HOURS_DEFAULT = 12
+MAX_WEEKLY_HOURS_DEFAULT = 16
 
 
 def parse_markdown_file(file_path):
@@ -40,9 +40,9 @@ def parse_markdown_file(file_path):
         # Find sections starting with ###
         if (
             line.strip().startswith("### ")
-            and not line.strip().startswith("### Riepilogo")
-            and not line.strip().startswith("### Stima Economica")
-            and not line.strip().startswith("### Timeline")
+            and not line.strip().startswith("### Riepilogo stime")
+            and not line.strip().startswith("### Stima economica")
+            and not line.strip().startswith("### Timeline stimata")
         ):
             current_phase = line.strip()[4:]  # Remove "### "
             continue
@@ -176,11 +176,60 @@ def generate_summary(
         + f" - €{max_price:,.0f}**".replace(",", ".")
     )
     summary_lines.append("")
+    summary_lines.append(
+        "_Nota: i costi indicati si riferiscono esclusivamente alle attività di sviluppo. Eventuali costi per servizi esterni (hosting, domini, licenze software, servizi cloud) non sono inclusi nella stima e saranno quantificati separatamente in base alle specifiche esigenze del progetto._"
+    )
+    summary_lines.append("")
     summary_lines.append("### Timeline stimata")
     summary_lines.append("")
     summary_lines.append(f"**{min_weeks}-{max_weeks} settimane** per il completamento.")
+    summary_lines.append("")
+    summary_lines.append(
+        "_Nota: la timeline è indicativa e dipende dalla complessità delle implementazioni, eventuali revisioni richieste e disponibilità del team di sviluppo._"
+    )
+    summary_lines.append("")
+    summary_lines.append("### Modalità di pagamento")
+    summary_lines.append(
+        "Acconto del 50% all'inizio del progetto oppure pagamento a milestone in base agli accordi stabiliti."
+    )
+    summary_lines.append("")
+    summary_lines.append("### Considerazioni finali")
+    summary_lines.append(
+        "_Le stime si basano sulle specifiche tecniche fornite. Eventuali modifiche sostanziali potrebbero comportare variazioni di costo e timeline._"
+    )
 
     return "\n".join(summary_lines)
+
+
+def update_markdown_file(file_path, summary, no_edit=False):
+    """
+    Updates the markdown file by either replacing the existing summary section or appending the new summary.
+    Returns True if successful, False otherwise.
+    """
+    if no_edit:
+        return True
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+
+        # Look for the summary section marker
+        summary_marker = "---\n\n### Riepilogo stime"
+        summary_index = content.find(summary_marker)
+
+        if summary_index != -1:
+            # Replace everything from the summary marker to the end of file
+            new_content = content[:summary_index] + summary
+        else:
+            # Append summary to the end of the file
+            new_content = content.rstrip() + "\n\n" + summary
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(new_content)
+        return True
+    except Exception as e:
+        print(f"Error updating file: {e}")
+        return False
 
 
 def main():
@@ -227,6 +276,13 @@ def main():
         action="store_true",
         help="Do not automatically copy to clipboard",
     )
+    parser.add_argument(
+        "--no-edit",
+        "-e",
+        default=False,
+        action="store_true",
+        help="Do not modify the input file",
+    )
 
     args = parser.parse_args()
 
@@ -263,7 +319,14 @@ def main():
         args.max_weekly_hours,
     )
 
-    # Output
+    # Update the input file unless --no-edit is specified
+    if not args.no_edit:
+        if update_markdown_file(args.file, summary, args.no_edit):
+            print(f"✅ Input file updated: {args.file}")
+        else:
+            print("⚠️  Failed to update input file")
+
+    # Output to separate file if specified
     if args.output and args.output != "-":
         try:
             with open(args.output, "w", encoding="utf-8") as f:
