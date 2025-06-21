@@ -13,6 +13,7 @@ node_modules/
 *.synctex.gz(busy)
 # remove releases
 # *.pdf # uncomment to keep PDF in commit
+*.tex
 appunti_completi.tex
 *-content.tex
 *.acn
