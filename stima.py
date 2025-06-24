@@ -49,7 +49,8 @@ def parse_markdown_file(file_path):
 
         # Look for the line with "Stima ore"
         if current_phase and line.strip().startswith("**Stima ore**:"):
-            # Extract hours using regex
+            # Extract hours using regex - support both ranges and single values
+            # First try to match range format (e.g., "10-15 ore")
             hours_match = re.search(r"(\d+)[-–](\d+)\s+ore", line)
             if hours_match:
                 min_hours = int(hours_match.group(1))
@@ -62,6 +63,19 @@ def parse_markdown_file(file_path):
                     }
                 )
                 current_phase = None
+            else:
+                # Try to match single value format (e.g., "5 ore")
+                single_hours_match = re.search(r"(\d+)\s+ore", line)
+                if single_hours_match:
+                    hours = int(single_hours_match.group(1))
+                    phases.append(
+                        {
+                            "name": current_phase,
+                            "min_hours": hours,
+                            "max_hours": hours,
+                        }
+                    )
+                    current_phase = None
 
     return phases
 
@@ -130,10 +144,11 @@ def calculate_estimates(
 
 
 def generate_summary(
-    phases, min_hourly_rate, max_hourly_rate, min_weekly_hours, max_weekly_hours
+    phases, min_hourly_rate, max_hourly_rate, min_weekly_hours, max_weekly_hours, final_quote=False
 ):
     """
     Generates the estimates summary in markdown format.
+    If final_quote is True, generates a final quote with average values.
     """
     if not phases:
         print("No phases found in the file.")
@@ -151,42 +166,70 @@ def generate_summary(
         phases, min_hourly_rate, max_hourly_rate, min_weekly_hours, max_weekly_hours
     )
 
+    if final_quote:
+        # Calculate final values as averages
+        final_hours = round((total_hours_min + total_hours_max) / 2)
+        final_price = round_to_multiple((min_price + max_price) / 2)
+        final_weeks = round((min_weeks + max_weeks) / 2)
+
     # Generate the markdown
     summary_lines = []
     summary_lines.append("---")
     summary_lines.append("")
-    summary_lines.append("### Riepilogo stime")
-    summary_lines.append("")
-    summary_lines.append("| Fase | Ore Min | Ore Max |")
-    summary_lines.append("| :--- | :---: | :---: |")
+    
+    if final_quote:
+        summary_lines.append("### Preventivo finale")
+        summary_lines.append("")
+        summary_lines.append("| Fase | Ore (media) |")
+        summary_lines.append("| :--- | :---: |")
 
-    for phase in phases:
+        for phase in phases:
+            phase_hours = round((phase['min_hours'] + phase['max_hours']) / 2)
+            summary_lines.append(f"| {phase['name']} | {phase_hours} |")
+
+        summary_lines.append(f"| **TOTALE** | **{final_hours}** |")
+        summary_lines.append("")
+        summary_lines.append("### Costo del progetto")
+        summary_lines.append("")
+        summary_lines.append(f"**Prezzo finale: €{final_price:,.0f}**".replace(",", "."))
+        summary_lines.append("")
+        summary_lines.append("### Timeline")
+        summary_lines.append("")
+        summary_lines.append(f"**{final_weeks} settimane** per il completamento.")
+    else:
+        summary_lines.append("### Riepilogo stime")
+        summary_lines.append("")
+        summary_lines.append("| Fase | Ore Min | Ore Max |")
+        summary_lines.append("| :--- | :---: | :---: |")
+
+        for phase in phases:
+            if phase['min_hours'] == phase['max_hours']:
+                # Single value - show only one column
+                summary_lines.append(f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |")
+            else:
+                summary_lines.append(f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |")
+
+        summary_lines.append(f"| **TOTALE** | **{total_hours_min}** | **{total_hours_max}** |")
+        summary_lines.append("")
+        summary_lines.append("### Stima economica")
+        summary_lines.append("")
         summary_lines.append(
-            f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |"
+            f"**Range di prezzo: €{min_price:,.0f}".replace(",", ".")
+            + f" - €{max_price:,.0f}**".replace(",", ".")
+        )
+        summary_lines.append("")
+        summary_lines.append(
+            "_Nota: i costi indicati si riferiscono esclusivamente alle attività di sviluppo. Eventuali costi per servizi esterni (hosting, domini, licenze software, servizi cloud) non sono inclusi nella stima e saranno quantificati separatamente in base alle specifiche esigenze del progetto._"
+        )
+        summary_lines.append("")
+        summary_lines.append("### Timeline stimata")
+        summary_lines.append("")
+        summary_lines.append(f"**{min_weeks}-{max_weeks} settimane** per il completamento.")
+        summary_lines.append("")
+        summary_lines.append(
+            "_Nota: la timeline è indicativa e dipende dalla complessità delle implementazioni, eventuali revisioni richieste e disponibilità del team di sviluppo._"
         )
 
-    summary_lines.append(
-        f"| **TOTALE** | **{total_hours_min}** | **{total_hours_max}** |"
-    )
-    summary_lines.append("")
-    summary_lines.append("### Stima economica")
-    summary_lines.append("")
-    summary_lines.append(
-        f"**Range di prezzo: €{min_price:,.0f}".replace(",", ".")
-        + f" - €{max_price:,.0f}**".replace(",", ".")
-    )
-    summary_lines.append("")
-    summary_lines.append(
-        "_Nota: i costi indicati si riferiscono esclusivamente alle attività di sviluppo. Eventuali costi per servizi esterni (hosting, domini, licenze software, servizi cloud) non sono inclusi nella stima e saranno quantificati separatamente in base alle specifiche esigenze del progetto._"
-    )
-    summary_lines.append("")
-    summary_lines.append("### Timeline stimata")
-    summary_lines.append("")
-    summary_lines.append(f"**{min_weeks}-{max_weeks} settimane** per il completamento.")
-    summary_lines.append("")
-    summary_lines.append(
-        "_Nota: la timeline è indicativa e dipende dalla complessità delle implementazioni, eventuali revisioni richieste e disponibilità del team di sviluppo._"
-    )
     summary_lines.append("")
     summary_lines.append("### Modalità di pagamento")
     summary_lines.append(
@@ -213,9 +256,18 @@ def update_markdown_file(file_path, summary, no_edit=False):
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
 
-        # Look for the summary section marker
-        summary_marker = "---\n\n### Riepilogo stime"
-        summary_index = content.find(summary_marker)
+        # Look for the summary section marker (both estimate and final quote)
+        summary_markers = [
+            "---\n\n### Riepilogo stime",
+            "---\n\n### Preventivo finale"
+        ]
+        
+        summary_index = -1
+        for marker in summary_markers:
+            index = content.find(marker)
+            if index != -1:
+                summary_index = index
+                break
 
         if summary_index != -1:
             # Replace everything from the summary marker to the end of file
@@ -266,6 +318,12 @@ def main():
         help=f"Maximum weekly hours (default: {MAX_WEEKLY_HOURS_DEFAULT})",
     )
     parser.add_argument(
+        "-f",
+        "--final",
+        action="store_true",
+        help="Generate final quote with average values instead of estimate ranges",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         help="Output file (default: print to stdout)",
@@ -297,6 +355,10 @@ def main():
     print(f"Maximum hourly rate: €{args.max_hourly_rate}")
     print(f"Minimum weekly hours: {args.min_weekly_hours}")
     print(f"Maximum weekly hours: {args.max_weekly_hours}")
+    if args.final:
+        print("Mode: Final quote (average values)")
+    else:
+        print("Mode: Estimate ranges")
     print()
 
     phases = parse_markdown_file(args.file)
@@ -307,7 +369,10 @@ def main():
 
     print(f"Found {len(phases)} phases:")
     for phase in phases:
-        print(f"  - {phase['name']}: {phase['min_hours']}-{phase['max_hours']} hours")
+        if phase['min_hours'] == phase['max_hours']:
+            print(f"  - {phase['name']}: {phase['min_hours']} hours")
+        else:
+            print(f"  - {phase['name']}: {phase['min_hours']}-{phase['max_hours']} hours")
     print()
 
     # Generate the summary
@@ -317,6 +382,7 @@ def main():
         args.max_hourly_rate,
         args.min_weekly_hours,
         args.max_weekly_hours,
+        final_quote=args.final,
     )
 
     # Update the input file unless --no-edit is specified
@@ -337,7 +403,10 @@ def main():
             sys.exit(1)
     else:
         print("=" * 50)
-        print("GENERATED SUMMARY:")
+        if args.final:
+            print("GENERATED FINAL QUOTE:")
+        else:
+            print("GENERATED ESTIMATE:")
         print("=" * 50)
         print(summary)
 
