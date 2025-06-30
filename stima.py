@@ -82,22 +82,34 @@ def parse_markdown_file(file_path):
 
 def copy_to_clipboard(text):
     """
-    Copies the text to the clipboard using xclip.
+    Copies the text to the clipboard using pbcopy (macOS) or xclip (Linux).
     """
+    import platform
+
+    system = platform.system()
+
     try:
-        # Check if xclip is installed
-        subprocess.run(["which", "xclip"], check=True, capture_output=True)
+        if system == "Darwin":  # macOS
+            # Use pbcopy on macOS
+            process = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            process.communicate(input=text.encode("utf-8"))
+            return process.returncode == 0
 
-        # Copy to clipboard
-        process = subprocess.Popen(
-            ["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE
-        )
-        process.communicate(input=text.encode("utf-8"))
+        elif system == "Linux":
+            # Check if xclip is installed on Linux
+            subprocess.run(["which", "xclip"], check=True, capture_output=True)
 
-        if process.returncode == 0:
-            return True
+            # Copy to clipboard using xclip
+            process = subprocess.Popen(
+                ["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE
+            )
+            process.communicate(input=text.encode("utf-8"))
+            return process.returncode == 0
+
         else:
+            # Unsupported system
             return False
+
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
@@ -144,7 +156,12 @@ def calculate_estimates(
 
 
 def generate_summary(
-    phases, min_hourly_rate, max_hourly_rate, min_weekly_hours, max_weekly_hours, final_quote=False
+    phases,
+    min_hourly_rate,
+    max_hourly_rate,
+    min_weekly_hours,
+    max_weekly_hours,
+    final_quote=False,
 ):
     """
     Generates the estimates summary in markdown format.
@@ -176,7 +193,7 @@ def generate_summary(
     summary_lines = []
     summary_lines.append("---")
     summary_lines.append("")
-    
+
     if final_quote:
         summary_lines.append("### Preventivo finale")
         summary_lines.append("")
@@ -184,14 +201,16 @@ def generate_summary(
         summary_lines.append("| :--- | :---: |")
 
         for phase in phases:
-            phase_hours = round((phase['min_hours'] + phase['max_hours']) / 2)
+            phase_hours = round((phase["min_hours"] + phase["max_hours"]) / 2)
             summary_lines.append(f"| {phase['name']} | {phase_hours} |")
 
         summary_lines.append(f"| **TOTALE** | **{final_hours}** |")
         summary_lines.append("")
         summary_lines.append("### Costo del progetto")
         summary_lines.append("")
-        summary_lines.append(f"**Prezzo finale: €{final_price:,.0f}**".replace(",", "."))
+        summary_lines.append(
+            f"**Prezzo finale: €{final_price:,.0f}**".replace(",", ".")
+        )
         summary_lines.append("")
         summary_lines.append("### Timeline")
         summary_lines.append("")
@@ -203,13 +222,19 @@ def generate_summary(
         summary_lines.append("| :--- | :---: | :---: |")
 
         for phase in phases:
-            if phase['min_hours'] == phase['max_hours']:
+            if phase["min_hours"] == phase["max_hours"]:
                 # Single value - show only one column
-                summary_lines.append(f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |")
+                summary_lines.append(
+                    f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |"
+                )
             else:
-                summary_lines.append(f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |")
+                summary_lines.append(
+                    f"| {phase['name']} | {phase['min_hours']} | {phase['max_hours']} |"
+                )
 
-        summary_lines.append(f"| **TOTALE** | **{total_hours_min}** | **{total_hours_max}** |")
+        summary_lines.append(
+            f"| **TOTALE** | **{total_hours_min}** | **{total_hours_max}** |"
+        )
         summary_lines.append("")
         summary_lines.append("### Stima economica")
         summary_lines.append("")
@@ -224,7 +249,9 @@ def generate_summary(
         summary_lines.append("")
         summary_lines.append("### Timeline stimata")
         summary_lines.append("")
-        summary_lines.append(f"**{min_weeks}-{max_weeks} settimane** per il completamento.")
+        summary_lines.append(
+            f"**{min_weeks}-{max_weeks} settimane** per il completamento."
+        )
         summary_lines.append("")
         summary_lines.append(
             "_Nota: la timeline è indicativa e dipende dalla complessità delle implementazioni, eventuali revisioni richieste e disponibilità del team di sviluppo._"
@@ -257,11 +284,8 @@ def update_markdown_file(file_path, summary, no_edit=False):
             content = file.read()
 
         # Look for the summary section marker (both estimate and final quote)
-        summary_markers = [
-            "---\n\n### Riepilogo stime",
-            "---\n\n### Preventivo finale"
-        ]
-        
+        summary_markers = ["---\n\n### Riepilogo stime", "---\n\n### Preventivo finale"]
+
         summary_index = -1
         for marker in summary_markers:
             index = content.find(marker)
@@ -369,10 +393,12 @@ def main():
 
     print(f"Found {len(phases)} phases:")
     for phase in phases:
-        if phase['min_hours'] == phase['max_hours']:
+        if phase["min_hours"] == phase["max_hours"]:
             print(f"  - {phase['name']}: {phase['min_hours']} hours")
         else:
-            print(f"  - {phase['name']}: {phase['min_hours']}-{phase['max_hours']} hours")
+            print(
+                f"  - {phase['name']}: {phase['min_hours']}-{phase['max_hours']} hours"
+            )
     print()
 
     # Generate the summary
@@ -414,10 +440,20 @@ def main():
     if not args.no_clipboard:
         if copy_to_clipboard(summary):
             print("\n✅ Summary copied to clipboard!")
-            print("You can paste it into your markdown file with Ctrl+V")
+            print(
+                "You can paste it into your markdown file with Ctrl+V (or Cmd+V on macOS)"
+            )
         else:
+            import platform
+
+            system = platform.system()
             print("\n⚠️  Could not copy to clipboard.")
-            print("Ensure xclip is installed: sudo apt install xclip")
+            if system == "Linux":
+                print("Ensure xclip is installed: sudo apt install xclip")
+            elif system == "Darwin":
+                print("pbcopy should be available by default on macOS")
+            else:
+                print("Clipboard functionality not supported on this system")
 
 
 if __name__ == "__main__":
