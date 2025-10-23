@@ -1,59 +1,34 @@
-*.aux
-*.log
-*.out
-*.toc
-*.synctex.gz
-*.pygtex
-_minted*
+# dependencies (bun install)
+node_modules
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
 .env
-node_modules/
-*.fdb_latexmk
-*.fls
-*.synctex(busy)
-*.synctex.gz(busy)
-# remove releases
-# *.pdf # uncomment to keep PDF in commit
-*.tex
-appunti_completi.tex
-*-content.tex
-*.acn
-*.acr
-*.alg
-*.bak
-*.bbl
-*.bcf
-*.blg
-*.brf
-*.bst
-*.dvi
-*.glg
-*.glo
-*.gls
-*.idx
-*.ilg
-*.ind
-*.ist
-*.lof
-*.lol
-*.lot
-*.maf
-*.mtc
-*.mtc1
-*.nav
-*.nlo
-*.nls
-*.pyg
-*.run.xml
-*.snm
-*.tex.backup
-*.tex~
-*.thm
-*.vrb
-*.xdy
-*.xml
-*blx.bib
-.bak 
-.mtc
-build/
-images/
-preambolo_comune.tex
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
