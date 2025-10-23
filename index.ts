@@ -6,6 +6,7 @@
  */
 
 import fs from "node:fs";
+import chalk from "chalk";
 import clipboardy from "clipboardy";
 import { Command } from "commander";
 
@@ -63,23 +64,35 @@ function parseMarkdownFile(filePath: string): Phase[] {
     "### Timeline"
   ];
 
+  console.log(`Parsing ${lines.length} lines from file...`);
+
   for (const line of lines) {
     const trimmedLine = line.trim();
     // Find sections starting with ###, excluding summary sections
     if (trimmedLine.startsWith("### ") && !excludedHeaders.some(h => trimmedLine.startsWith(h))) {
       currentPhase = trimmedLine.substring(4); // Remove "### "
+      // console.log(`Found phase: "${currentPhase}"`);
+      console.log(`Found phase: "${chalk.green(`${currentPhase}`)}"`);
       continue;
     }
 
     // Look for the line with "Stima ore"
     if (currentPhase && trimmedLine.startsWith("**Stima ore**:")) {
+      console.log(
+        `${chalk.gray(
+          '  ├─ Found "Stima ore" line for phase'
+        )}: "${currentPhase}" → "${trimmedLine}"`
+      );
       // Try to match range format (e.g., "10-15 ore")
       const rangeMatch = trimmedLine.match(/(\d+)[-–](\d+)\s+ore/);
       if (rangeMatch) {
+        const minHours = parseInt(rangeMatch[1]!, 10);
+        const maxHours = parseInt(rangeMatch[2]!, 10);
+        console.log(`${chalk.gray("  ├─ ✓ Parsed hours range:")} ${minHours}-${maxHours} ore`);
         phases.push({
           name: currentPhase,
-          minHours: parseInt(rangeMatch[1]!, 10),
-          maxHours: parseInt(rangeMatch[2]!, 10)
+          minHours,
+          maxHours
         });
         currentPhase = null;
       } else {
@@ -87,21 +100,36 @@ function parseMarkdownFile(filePath: string): Phase[] {
         const singleMatch = trimmedLine.match(/(\d+)\s+ore/);
         if (singleMatch) {
           const hours = parseInt(singleMatch[1]!, 10);
+          console.log(`${chalk.gray("  ├─ ✓ Parsed single hours value:")} ${hours} ore`);
           phases.push({ name: currentPhase, minHours: hours, maxHours: hours });
           currentPhase = null;
+        } else {
+          console.log(
+            `${chalk.gray("  ├─ ✗ Warning: Could not parse hours from line:")} "${chalk.yellow(
+              trimmedLine
+            )}"`
+          );
         }
       }
+    } else if (currentPhase && trimmedLine.includes("ore") && trimmedLine.includes("Stima")) {
+      console.log(
+        `${chalk.gray(
+          '  ├─ Note: Found line with "Stima" and "ore" but doesn\'t match expected format:'
+        )} "${chalk.yellow(trimmedLine)}"`
+      );
     }
   }
+
+  console.log(`Successfully parsed ${phases.length} phases\n`);
   return phases;
 }
 
 /**
  * Copies the text to the clipboard.
  */
-async function copyToClipboard(text: string): Promise<boolean> {
+function copyToClipboard(text: string): boolean {
   try {
-    await clipboardy.write(text);
+    clipboardy.writeSync(text);
     return true;
   } catch (error) {
     console.warn(`Warning: Could not copy to clipboard: ${(error as Error).message}`);
@@ -188,6 +216,9 @@ function generateSummary(
     });
     summaryLines.push(`| **TOTALE** | **${finalHours}** |`, "");
     summaryLines.push("### Costo del progetto", "");
+    const calculatedRate = Math.round(finalPrice / finalHours);
+    summaryLines.push(`Stima effort (ore): ${finalHours}`, "");
+    summaryLines.push(`Tariffa oraria: €${calculatedRate}`, "");
     summaryLines.push(`**Prezzo finale: €${formatPrice(finalPrice)}**`, "");
     summaryLines.push("### Timeline", "");
     summaryLines.push(`**${finalWeeks} settimane** per il completamento.`);
@@ -241,17 +272,33 @@ function updateMarkdownFile(filePath: string, summary: string): boolean {
     for (const marker of summaryMarkers) {
       const index = content.indexOf(marker);
       if (index !== -1) {
+        console.log(
+          `Found existing summary marker at index ${chalk.yellow(index)}:\n"${chalk.bgGrey(
+            marker
+          )}"\n`
+        );
         summaryIndex = index;
         break;
       }
     }
 
+    console.log("Updating markdown file with new summary...");
+
     let newContent: string;
     if (summaryIndex !== -1) {
       newContent = content.substring(0, summaryIndex) + summary;
+      console.log(
+        `Replacing existing summary starting at index ${chalk.yellow(
+          summaryIndex
+        )} with new summary:\n"${chalk.gray(summary).substring(0, 50)}"\n${chalk.reset(
+          "[truncated]"
+        )}`
+      );
     } else {
       newContent = `${content.trimEnd()}\n\n${summary}`;
     }
+
+    console.log(`Writing updated content to file: ${chalk.blue(filePath)}`);
 
     fs.writeFileSync(filePath, newContent, "utf-8");
     return true;
@@ -314,13 +361,15 @@ async function main() {
         process.exit(1);
       }
 
-      console.log(`Analyzing file: ${file}`);
-      console.log(`Minimum hourly rate: €${opts.minHourlyRate}`);
-      console.log(`Maximum hourly rate: €${opts.maxHourlyRate}`);
-      console.log(`Minimum weekly hours: ${opts.minWeeklyHours}`);
-      console.log(`Maximum weekly hours: ${opts.maxWeeklyHours}`);
+      console.log(`${chalk.gray("Analyzing file:")} ${file}`);
+      console.log(`${chalk.gray("Minimum hourly rate:")} €${opts.minHourlyRate}`);
+      console.log(`${chalk.gray("Maximum hourly rate:")} €${opts.maxHourlyRate}`);
+      console.log(`${chalk.gray("Minimum weekly hours:")} ${opts.minWeeklyHours}`);
+      console.log(`${chalk.gray("Maximum weekly hours:")} ${opts.maxWeeklyHours}`);
       console.log(
-        `Mode: ${opts.finalQuote ? "Final quote (average values)" : "Estimate ranges"}\n`
+        `${chalk.gray("Mode:")} ${
+          opts.finalQuote ? "Final quote (average values)" : "Estimate ranges"
+        }\n`
       );
 
       const phases = parseMarkdownFile(file);
@@ -336,14 +385,14 @@ async function main() {
           phase.minHours === phase.maxHours
             ? `${phase.minHours} hours`
             : `${phase.minHours}-${phase.maxHours} hours`;
-        console.log(`  - ${phase.name}: ${hourRange}`);
+        console.log(`  - ${phase.name}: ${chalk.blue(hourRange)}`);
       });
       console.log();
 
       const summary = generateSummary(phases, opts);
 
       if (!options.noEdit && updateMarkdownFile(file, summary)) {
-        console.log(`✅ Input file updated: ${file}`);
+        console.log(`Input file updated: ${chalk.blue(file)}`);
       } else if (!options.noEdit) {
         console.log("⚠️  Failed to update input file");
       }
@@ -357,13 +406,16 @@ async function main() {
           process.exit(1);
         }
       } else {
-        console.log("=".repeat(50));
-        console.log(opts.finalQuote ? "GENERATED FINAL QUOTE:" : "GENERATED ESTIMATE:");
-        console.log("=".repeat(50));
-        console.log(summary);
+        console.log(
+          "\n" +
+            chalk.bgBlue.whiteBright.bold(
+              opts.finalQuote ? "Generated final quote:" : "Generated estimate:"
+            )
+        );
+        console.log(chalk.gray(summary));
       }
 
-      if (!options.noClipboard && (await copyToClipboard(summary))) {
+      if (!options.noClipboard && copyToClipboard(summary)) {
         console.log("\n✅ Summary copied to clipboard!");
       } else if (!options.noClipboard) {
         console.log("\n⚠️  Could not copy to clipboard. Ensure a clipboard utility is available.");
