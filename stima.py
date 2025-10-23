@@ -183,22 +183,26 @@ def generate_summary(
         phases, min_hourly_rate, max_hourly_rate, min_weekly_hours, max_weekly_hours
     )
 
-    if final_quote:
-        # Calculate final values as averages
-        final_hours = round((total_hours_min + total_hours_max) / 2)
-        final_price = round_to_multiple((min_price + max_price) / 2)
-        final_weeks = round((min_weeks + max_weeks) / 2)
-
     # Generate the markdown
     summary_lines = []
     summary_lines.append("---")
     summary_lines.append("")
 
     if final_quote:
+        # Calculate final values as averages
+        final_hours = round((total_hours_min + total_hours_max) / 2)
+        final_price = round_to_multiple((min_price + max_price) / 2)
+        final_weeks = round((min_weeks + max_weeks) / 2)
+
         summary_lines.append("### Preventivo finale")
         summary_lines.append("")
         summary_lines.append("| Fase | Ore (media) |")
         summary_lines.append("| :--- | :---: |")
+
+        # throw error if phases is empty
+        if not phases:
+            print("No phases found in the file.")
+            sys.exit(1)
 
         for phase in phases:
             phase_hours = round((phase["min_hours"] + phase["max_hours"]) / 2)
