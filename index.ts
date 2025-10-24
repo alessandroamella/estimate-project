@@ -145,6 +145,14 @@ function roundToMultiple(num: number, multiple = 5): number {
 }
 
 /**
+ * Rounds a number to a specified number of decimal digits.
+ */
+function roundToDigits(num: number, digits: number): number {
+  const factor = 10 ** digits;
+  return Math.round(num * factor) / factor;
+}
+
+/**
  * Calculates total hours, price range, and estimated timeline from phases data.
  */
 function calculateEstimates(
@@ -197,8 +205,13 @@ function generateSummary(
   const { totalHoursMin, totalHoursMax, priceMin, priceMax, weeksMin, weeksMax } =
     calculateEstimates(phases, minHourlyRate, maxHourlyRate, minWeeklyHours, maxWeeklyHours);
 
-  const formatPrice = (price: number) => new Intl.NumberFormat("it-IT").format(price);
-
+  const formatPrice = (price: number, digits?: number) => {
+    const roundedPrice = Number.isInteger(digits) ? roundToDigits(price, digits!) : price;
+    return new Intl.NumberFormat("it-IT", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    }).format(roundedPrice);
+  };
   const summaryLines: string[] = [];
   summaryLines.push("---", "");
 
@@ -216,10 +229,10 @@ function generateSummary(
     });
     summaryLines.push(`| **TOTALE** | **${finalHours}** |`, "");
     summaryLines.push("### Costo del progetto", "");
-    const calculatedRate = Math.round(finalPrice / finalHours);
+    const calculatedRate = formatPrice(finalPrice / finalHours, 0);
     summaryLines.push(`Stima effort (ore): ${finalHours}`, "");
     summaryLines.push(`Tariffa oraria: €${calculatedRate}`, "");
-    summaryLines.push(`**Prezzo finale: €${formatPrice(finalPrice)}**`, "");
+    summaryLines.push(`**Prezzo finale: €${formatPrice(finalPrice, 2)}**`, "");
     summaryLines.push("### Timeline", "");
     summaryLines.push(`**${finalWeeks} settimane** per il completamento.`);
   } else {
@@ -361,16 +374,11 @@ async function main() {
         process.exit(1);
       }
 
-      console.log(`${chalk.gray("Analyzing file:")} ${file}`);
-      console.log(`${chalk.gray("Minimum hourly rate:")} €${opts.minHourlyRate}`);
-      console.log(`${chalk.gray("Maximum hourly rate:")} €${opts.maxHourlyRate}`);
-      console.log(`${chalk.gray("Minimum weekly hours:")} ${opts.minWeeklyHours}`);
-      console.log(`${chalk.gray("Maximum weekly hours:")} ${opts.maxWeeklyHours}`);
-      console.log(
-        `${chalk.gray("Mode:")} ${
-          opts.finalQuote ? "Final quote (average values)" : "Estimate ranges"
-        }\n`
-      );
+      console.log("Analyzing with options:");
+      for (const [key, value] of Object.entries({ file, ...opts })) {
+        console.log(`${chalk.gray(`  ├─ ${key}:`)} ${chalk.green(`${value}`)}`);
+      }
+      console.log();
 
       const phases = parseMarkdownFile(file);
 
