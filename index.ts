@@ -12,10 +12,9 @@ import { Command } from "commander";
 
 // --- Configuration ---
 
-const MIN_HOURLY_RATE_DEFAULT = 34;
-const MAX_HOURLY_RATE_DEFAULT = 36;
-const MIN_WEEKLY_HOURS_DEFAULT = 12;
-const MAX_WEEKLY_HOURS_DEFAULT = 16;
+const HOURLY_RATE_DEFAULT = 35;
+const WEEKLY_HOURS_DEFAULT = 15;
+const DOWN_PAYMENT_PERCENTAGE_DEFAULT = 50;
 
 // --- Type Definitions ---
 
@@ -71,7 +70,6 @@ function parseMarkdownFile(filePath: string): Phase[] {
     // Find sections starting with ###, excluding summary sections
     if (trimmedLine.startsWith("### ") && !excludedHeaders.some(h => trimmedLine.startsWith(h))) {
       currentPhase = trimmedLine.substring(4); // Remove "### "
-      // console.log(`Found phase: "${currentPhase}"`);
       console.log(`Found phase: "${chalk.green(`${currentPhase}`)}"`);
       continue;
     }
@@ -155,23 +153,22 @@ function roundToDigits(num: number, digits: number): number {
 /**
  * Calculates total hours, price range, and estimated timeline from phases data.
  */
+// CHANGED: The function now accepts a single hourlyRate and weeklyHours.
 function calculateEstimates(
   phases: Phase[],
-  minHourlyRate: number,
-  maxHourlyRate: number,
-  minWeeklyHours: number,
-  maxWeeklyHours: number
+  hourlyRate: number,
+  weeklyHours: number
 ): EstimateCalculations {
   const totalHoursMin = phases.reduce((sum, phase) => sum + phase.minHours, 0);
   const totalHoursMax = phases.reduce((sum, phase) => sum + phase.maxHours, 0);
 
-  const priceMin = roundToMultiple(totalHoursMin * minHourlyRate);
-  const priceMax = roundToMultiple(totalHoursMax * maxHourlyRate);
+  // CHANGED: Price is calculated based on the single hourly rate.
+  const priceMin = roundToMultiple(totalHoursMin * hourlyRate);
+  const priceMax = roundToMultiple(totalHoursMax * hourlyRate);
 
-  // Best case: min hours with max weekly effort
-  const weeksMin = Math.round(totalHoursMin / maxWeeklyHours);
-  // Worst case: max hours with min weekly effort
-  const weeksMax = Math.round(totalHoursMax / minWeeklyHours);
+  // CHANGED: Weeks are calculated based on the single weekly hours value.
+  const weeksMin = Math.round(totalHoursMin / weeklyHours);
+  const weeksMax = Math.round(totalHoursMax / weeklyHours);
 
   return {
     totalHoursMin,
@@ -186,24 +183,24 @@ function calculateEstimates(
 /**
  * Generates the estimates summary in markdown format.
  */
+// CHANGED: Updated the function signature and destructuring to use the new options.
 function generateSummary(
   phases: Phase[],
   {
-    minHourlyRate,
-    maxHourlyRate,
-    minWeeklyHours,
-    maxWeeklyHours,
-    finalQuote
+    hourlyRate,
+    weeklyHours,
+    finalQuote,
+    downPaymentPercentage
   }: {
-    minHourlyRate: number;
-    maxHourlyRate: number;
-    minWeeklyHours: number;
-    maxWeeklyHours: number;
+    hourlyRate: number;
+    weeklyHours: number;
     finalQuote: boolean;
+    downPaymentPercentage: number;
   }
 ): string {
+  // CHANGED: The call to calculateEstimates now passes the single rate and hours.
   const { totalHoursMin, totalHoursMax, priceMin, priceMax, weeksMin, weeksMax } =
-    calculateEstimates(phases, minHourlyRate, maxHourlyRate, minWeeklyHours, maxWeeklyHours);
+    calculateEstimates(phases, hourlyRate, weeklyHours);
 
   const formatPrice = (price: number, digits?: number) => {
     const roundedPrice = Number.isInteger(digits) ? roundToDigits(price, digits!) : price;
@@ -261,7 +258,7 @@ function generateSummary(
 
   summaryLines.push("", "### Modalità di pagamento");
   summaryLines.push(
-    "Acconto del 50% all'inizio del progetto oppure pagamento a milestone in base agli accordi stabiliti.",
+    `Acconto del ${downPaymentPercentage}% all'inizio del progetto oppure pagamento a milestone in base agli accordi stabiliti.`,
     ""
   );
   summaryLines.push("### Considerazioni finali");
@@ -332,25 +329,17 @@ async function main() {
     .description("Automatically generates an estimates summary from a markdown quote file.")
     .version("1.0.0")
     .argument("<file>", "Markdown quote file to analyze")
+    // CHANGED: Replaced the four min/max options with two single-value options.
+    .option("-r, --hourly-rate <number>", "The hourly rate in euros", String(HOURLY_RATE_DEFAULT))
     .option(
-      "-m, --min-hourly-rate <number>",
-      "Minimum hourly rate in euros",
-      String(MIN_HOURLY_RATE_DEFAULT)
+      "-w, --weekly-hours <number>",
+      "The number of hours worked per week",
+      String(WEEKLY_HOURS_DEFAULT)
     )
     .option(
-      "-M, --max-hourly-rate <number>",
-      "Maximum hourly rate in euros",
-      String(MAX_HOURLY_RATE_DEFAULT)
-    )
-    .option(
-      "-w, --min-weekly-hours <number>",
-      "Minimum weekly hours",
-      String(MIN_WEEKLY_HOURS_DEFAULT)
-    )
-    .option(
-      "-W, --max-weekly-hours <number>",
-      "Maximum weekly hours",
-      String(MAX_WEEKLY_HOURS_DEFAULT)
+      "-d, --down-payment <number>",
+      "Down payment percentage",
+      String(DOWN_PAYMENT_PERCENTAGE_DEFAULT)
     )
     .option(
       "-f, --final",
@@ -361,11 +350,11 @@ async function main() {
     .option("-c, --no-clipboard", "Do not automatically copy to clipboard", false)
     .option("-e, --no-edit", "Do not modify the input file", false)
     .action(async (file, options) => {
+      // CHANGED: The options object now reflects the new CLI arguments.
       const opts = {
-        minHourlyRate: parseFloat(options.minHourlyRate),
-        maxHourlyRate: parseFloat(options.maxHourlyRate),
-        minWeeklyHours: parseFloat(options.minWeeklyHours),
-        maxWeeklyHours: parseFloat(options.maxWeeklyHours),
+        hourlyRate: parseFloat(options.hourlyRate),
+        weeklyHours: parseFloat(options.weeklyHours),
+        downPaymentPercentage: parseFloat(options.downPayment),
         finalQuote: options.final
       };
 
