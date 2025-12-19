@@ -218,7 +218,8 @@ function generateSummary(
 
   if (finalQuote) {
     const finalHours = Math.round((totalHoursMin + totalHoursMax) / 2);
-    const finalPrice = roundToMultiple((priceMin + priceMax) / 2);
+    // Calcola il prezzo basandosi sulle ore GIÀ ARROTONDATE
+    const finalPrice = finalHours * hourlyRate;
     const finalWeeks = Math.round((weeksMin + weeksMax) / 2);
 
     summaryLines.push("### Preventivo finale", "");
