@@ -190,12 +190,16 @@ function generateSummary(
     hourlyRate,
     weeklyHours,
     finalQuote,
-    downPaymentPercentage
+    downPaymentPercentage,
+    milestones,
+    feedbackWindowWeeks
   }: {
     hourlyRate: number;
     weeklyHours: number;
     finalQuote: boolean;
     downPaymentPercentage: number;
+    milestones: number;
+    feedbackWindowWeeks: number;
   }
 ): string {
   // CHANGED: The call to calculateEstimates now passes the single rate and hours.
@@ -257,8 +261,17 @@ function generateSummary(
   }
 
   summaryLines.push("", "### Modalità di pagamento");
+  if (milestones > 0) {
+    summaryLines.push(`Acconto in base ai ${milestones} milestone stabiliti.`, "");
+  } else {
+    summaryLines.push(
+      `Acconto del ${downPaymentPercentage}% all'inizio del progetto, seguito dal saldo alla consegna.`,
+      ""
+    );
+  }
+  summaryLines.push("", "### Finestra di feedback");
   summaryLines.push(
-    `Acconto del ${downPaymentPercentage}% all'inizio del progetto oppure pagamento a milestone in base agli accordi stabiliti.`,
+    `Le modifiche e le correzioni dovranno essere comunicate **entro ${feedbackWindowWeeks} settimane** dal completamento della relativa fase. Dopo questo periodo, i cambiamenti richiesti saranno soggetti a una nuova stima dei costi e dei tempi.  \nFanno eccezione esclusivamente eventuali malfunzionamenti gravi o evidenti, che saranno comunque risolti entro tempi congrui.`,
     ""
   );
   summaryLines.push("### Considerazioni finali");
@@ -341,6 +354,8 @@ async function main() {
       "Down payment percentage",
       String(DOWN_PAYMENT_PERCENTAGE_DEFAULT)
     )
+    .option("-m, --milestones <number>", "Number of payment milestones", "0")
+    .option("--feedback-window <number>", "Feedback review window in weeks", "2")
     .option(
       "-f, --final",
       "Generate final quote with average values instead of estimate ranges",
@@ -355,6 +370,8 @@ async function main() {
         hourlyRate: parseFloat(options.hourlyRate),
         weeklyHours: parseFloat(options.weeklyHours),
         downPaymentPercentage: parseFloat(options.downPayment),
+        milestones: parseInt(options.milestones),
+        feedbackWindowWeeks: parseInt(options.feedbackWindow),
         finalQuote: options.final
       };
 
